@@ -4,24 +4,21 @@ import { useEffect, useState } from "react";
 import { DirectedGraph } from "graphology";
 import { SigmaContainer } from "@react-sigma/core";
 import "@react-sigma/core/lib/react-sigma.min.css";
-import { circular, random } from "graphology-layout";
-import forceAtlas2 from "graphology-layout-forceatlas2";
-import { Card, CardDescription, CardHeader, CardTitle } from "./ui/card";
-import { Badge } from "./ui/badge";
-import { Input } from "./ui/input";
-import { Minus, Plus } from "lucide-react";
+import { circular } from "graphology-layout";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./ui/card";
 import { Slider } from "./ui/slider";
 import { Label } from "./ui/label";
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, YAxis } from "recharts"
+import { type ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 
 type NodeData = {
 	addr: string,
-	succ: string,
+	fingers: string[],
+	len: number,
 }
 
-type Message = {
-	kind: "node data" | "haiku"
-	data: NodeData[] | string
-	len: number,
+type Latency = {
+	ms: number,
 }
 
 export const Client = () => {
@@ -43,47 +40,124 @@ export const Client = () => {
 	}[readyState];
 
 	const [graph, _] = useState(new DirectedGraph());
-	const [nodeCount, setNodeCount] = useState(0);
 	const [nodes, setNodes] = useState(20);
-	const [haikus, setHaikus] = useState<string[]>([]);
+	const [nodeData, setNodeData] = useState<NodeData[]>([]);
+	const [haikus, setHaikus] = useState<string[]>(["", "", "", "", ""]);
+	const [latencyTotal, setLatencyTotal] = useState(0);
+	const [nHaikus, setNHaikus] = useState(0);
 	const [dataLen, setDataLen] = useState(0);
+
+	const [latencyAvg, setLatencyAvg] = useState<Latency[]>([]);
 
 	useEffect(
 		() => {
 			if (lastMessage) {
-				let n = 0;
-				let lastMessageData: Message = JSON.parse(lastMessage?.data);
-				if (lastMessageData.kind === "node data") {
-					graph.clear();
-					for (let node of lastMessageData.data as NodeData[]) {
-						graph.mergeNode(node.addr, {
-							x: 0,
-							y: 0,
-							label: node.addr,
-							size: 15,
-						});
-						n += 1;
-					}
-					for (let node of lastMessageData.data as NodeData[]) {
-						if (node.succ.length !== 0) {
-							graph.mergeEdge(node.addr, node.succ);
+				let message = JSON.parse(lastMessage.data);
+				switch (Object.keys(message)[0]) {
+					case "NodeData":
+						let data: NodeData[] = message["NodeData"];
+						let n = 0;
+						let len = 0;
+						graph.clear();
+						for (let node of data) {
+							graph.mergeNode(node.addr, {
+								x: 0,
+								y: 0,
+								label: node.addr,
+								size: 5 + (node.len / 250),
+							});
+							n += 1;
+							len += node.len;
 						}
-					}
-					console.log(lastMessageData.len);
-					circular.assign(graph);
-					setNodeCount(n);
-					setDataLen(lastMessageData.len);
-				} else {
-					setHaikus([...haikus, lastMessageData.data as string]);
+						for (let node of data) {
+							for (let finger of node.fingers) {
+								graph.mergeEdge(node.addr, finger);
+
+							}
+						}
+						circular.assign(graph);
+						setNodeData(data);
+						setDataLen(len);
+						break;
+					case "Haiku":
+						setHaikus([message["Haiku"][0], ...haikus.slice(0, 4)])
+						setNHaikus(nHaikus + 1);
+						setLatencyTotal(latencyTotal + message["Haiku"][1]);
+
+						setLatencyAvg([...latencyAvg, { ms: latencyTotal / nHaikus }]);
+						break;
 				}
 			}
 		}, [lastMessage]
 	);
 
+	const dataSpreadConfig = {
+		len: {
+			label: "Entries",
+			color: "hsl(var(--chart-1))",
+		},
+	} satisfies ChartConfig
+
+	const getLatencyConfig = {
+		ms: {
+			label: "latency (ms)",
+			color: "hsl(var(--chart-2))",
+		}
+	} satisfies ChartConfig
+
+
 	return (
-		<div className="flex p-8 flex-row w-full h-full space-x-8 justify-between">
-			<SigmaContainer settings={{ defaultEdgeType: "arrow" }} className="rounded-xl border-2" style={{ background: "inherit", color: "white" }} graph={graph} />
-			<div className="flex flex-col space-y-2 border-red-500">
+		<div className="flex p-8 flex-row w-screen h-screen space-x-8 justify-between">
+			<div className="w-1/4 h-full flex flex-col space-y-8">
+				<Card>
+					<CardHeader>
+						<CardTitle>Data Spread</CardTitle>
+						<CardDescription>Number of entries in each node</CardDescription>
+					</CardHeader>
+					<CardContent>
+						<ChartContainer config={dataSpreadConfig} className="min-h-[50px]">
+							<BarChart accessibilityLayer data={nodeData} >
+								<YAxis dataKey="len" tickLine={false} axisLine={false} orientation="left" width={30} />
+								<ChartTooltip
+									cursor={false}
+									content={<ChartTooltipContent />}
+								/>
+								<Bar dataKey="len" fill="var(--color-len)" radius={4} />
+							</BarChart>
+						</ChartContainer>
+					</CardContent>
+				</Card>
+				<Card>
+					<CardHeader>
+						<CardTitle>
+							"Get" Latency
+						</CardTitle>
+						<CardDescription>
+							Cumulative average latency in milliseconds for get operations
+						</CardDescription>
+					</CardHeader>
+					<CardContent>
+						<ChartContainer config={getLatencyConfig} >
+							<AreaChart accessibilityLayer data={latencyAvg}>
+								<YAxis dataKey="ms" tickLine={false} axisLine={false} orientation="left" width={30} />
+								<ChartTooltip
+									cursor={false}
+									content={<ChartTooltipContent />}
+								/>
+								<Area
+									dataKey="ms"
+									type="natural"
+									fill="var(--color-ms)"
+									fillOpacity={0.4}
+									stroke="var(--color-ms)"
+								/>
+							</AreaChart>
+						</ChartContainer>
+					</CardContent>
+				</Card>
+			</div>
+			<SigmaContainer settings={{ defaultEdgeType: "arrow" }} className="rounded-xl border-2 w-full" style={{ background: "inherit", color: "white" }} graph={graph} />
+			<div className="flex flex-col space-y-2 w-1/4">
 				<Card>
 					<CardHeader className="p-4">
 						<div className="flex flex-row items-center justify-between">
@@ -99,12 +173,19 @@ export const Client = () => {
 					</CardHeader>
 				</Card>
 				<p>data len: {dataLen}</p>
-				<p>node count: {nodeCount}</p>
+				<p>node count: {nodeData.length}</p>
 				<div className="flex w-full items-center justify-between flex-row space-x-4">
 					<Label>{nodes}</Label>
 					<Slider onValueChange={(n) => setNodes(n[0])} defaultValue={[20]} min={1} max={50} step={1} />
 				</div>
 				<Button onClick={() => sendMessage(JSON.stringify({ "Start": { nodes: nodes } }))} disabled={readyState !== ReadyState.OPEN}>send start message</Button>
+				<ul className="flex flex-col space-y-8">
+					{
+						haikus.map(h => (
+							<li className="whitespace-pre-line">{h}</li>
+						))
+					}
+				</ul>
 			</div>
 		</div>
 	)
