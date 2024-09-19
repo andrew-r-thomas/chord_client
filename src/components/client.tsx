@@ -1,6 +1,6 @@
 import useWebSocket, { ReadyState } from "react-use-websocket";
 import { Button } from "@/components/ui/button";
-import { act, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { DirectedGraph } from "graphology";
 import { SigmaContainer } from "@react-sigma/core";
 import "@react-sigma/core/lib/react-sigma.min.css";
@@ -62,13 +62,14 @@ export const Client = () => {
 	const [fixFingersFreq, setFixFingersFreq] = useState(100);
 	const [pollRate, setPollRate] = useState(100);
 
-	const [started, setStarted] = useState<"not started" | "started" | "pending">("not started");
+	const [simStatus, setSimStatus] = useState<"stopped" | "started">("stopped");
+	const [startPending, setStartPending] = useState(false);
+	const [stopPending, setStopPending] = useState(false);
+	const [updatePending, setUpdatePending] = useState(false);
 
 	useEffect(
 		() => {
 			if (lastMessage) {
-				if (started !== "started") setStarted("started")
-
 				let message = JSON.parse(lastMessage.data);
 				switch (Object.keys(message)[0]) {
 					case "PollData":
@@ -98,6 +99,21 @@ export const Client = () => {
 						setAvgGetPathLen(data.avg_get_path_len);
 						setAvgSetPathLen(data.avg_set_path_len);
 						setQuotes(data.popular_quotes);
+						break;
+					case "Ctrl":
+						switch (message["Ctrl"]) {
+							case "Started":
+								setSimStatus("started");
+								setStartPending(false);
+								break;
+							case "Stopped":
+								setSimStatus("stopped");
+								setStopPending(false);
+								break;
+							case "Updated":
+								setUpdatePending(false);
+								break;
+						}
 						break;
 				}
 			}
@@ -188,18 +204,18 @@ export const Client = () => {
 					</CardHeader>
 				</Card>
 				{
-					started === "started" ? <Button onClick={
+					simStatus === "started" ? <Button onClick={
 						() => {
-							setStarted("not started")
+							setStopPending(true)
 							sendMessage(JSON.stringify("Stop"))
 						}
 					} variant="destructive">
-						Stop
+						{stopPending ? <LoaderCircle className="animate-spin" /> : "Stop"}
 					</Button> :
 						<Button
 							onClick={
 								() => {
-									setStarted("pending");
+									setStartPending(true);
 									sendMessage(
 										JSON.stringify({
 											"Start": {
@@ -217,7 +233,7 @@ export const Client = () => {
 							disabled={readyState !== ReadyState.OPEN}
 						>
 							{
-								started === "pending" ? <LoaderCircle className="animate-spin" /> : "Start"
+								startPending ? <LoaderCircle className="animate-spin" /> : "Start"
 							}
 						</Button>
 				}
@@ -347,22 +363,32 @@ export const Client = () => {
 						<Slider onValueChange={(n) => setFixFingersFreq(n[0])} defaultValue={[100]} min={10} max={1000} step={1} />
 					</div>
 				</div>
-				{/* <ul className="flex flex-col space-y-8">
-					{
-						quotes.map(h => (
-							<Card>
-								<CardHeader>
-									<CardTitle>
-										{h.author}
-									</CardTitle>
-								</CardHeader>
-								<CardContent>
-									{h.quote}
-								</CardContent>
-							</Card>
-						))
-					}
-				</ul> */}
+				{
+					simStatus === "started" ? <Button
+						disabled={readyState !== ReadyState.OPEN}
+						onClick={
+							() => {
+								setUpdatePending(true);
+								sendMessage(
+									JSON.stringify(
+										{
+											"Update": {
+												poll_rate: pollRate,
+												nodes: nodes,
+												activity_level: activityLevel,
+												get_affinity: getAffinity,
+												stabilize_freq: stabilizeFreq,
+												fix_finger_freq: fixFingersFreq
+											}
+										}
+									)
+								)
+							}
+						}
+					>
+						{updatePending ? <LoaderCircle className="animate-spin" /> : "Update Settings"}
+					</Button> : <></>
+				}
 			</div>
 		</div>
 	)
