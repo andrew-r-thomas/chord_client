@@ -16,8 +16,10 @@ import { ScrollArea } from "./ui/scroll-area";
 
 type PollData = {
 	nodes: NodeData[],
-	avg_get_path_len: number,
-	avg_set_path_len: number,
+	total_get_len: number,
+	total_set_len: number,
+	total_gets: number,
+	total_sets: number,
 	popular_quotes: Quote[],
 }
 type NodeData = {
@@ -54,8 +56,10 @@ export const Client = () => {
 	const [nodeData, setNodeData] = useState<NodeData[]>([]);
 
 	const [quotes, setQuotes] = useState<Quote[]>([]);
-	const [avgGetPathLen, setAvgGetPathLen] = useState(0);
-	const [avgSetPathLen, setAvgSetPathLen] = useState(0);
+	const [totalGetPathLen, setTotalGetPathLen] = useState(0);
+	const [totalGets, setTotalGets] = useState(0);
+	const [totalSetPathLen, setTotalSetPathLen] = useState(0);
+	const [totalSets, setTotalSets] = useState(0);
 
 	const [nodes, setNodes] = useState(20);
 	const [activityLevel, setActivityLevel] = useState(100);
@@ -84,21 +88,24 @@ export const Client = () => {
 								y: 0,
 								label: node.addr,
 								size: 5 + (node.len / 250),
+								color: "white"
 							});
 							n += 1;
 							len += node.len;
 						}
 						for (let node of data.nodes) {
 							for (let finger of node.fingers) {
-								graph.mergeEdge(node.addr, finger);
+								graph.mergeEdge(node.addr, finger, { color: "white" });
 
 							}
 						}
 						circular.assign(graph);
 						setNodeData(data.nodes);
 						setDataLen(len);
-						setAvgGetPathLen(data.avg_get_path_len);
-						setAvgSetPathLen(data.avg_set_path_len);
+						setTotalGetPathLen(data.total_get_len);
+						setTotalGets(data.total_gets);
+						setTotalSetPathLen(data.total_set_len);
+						setTotalSets(data.total_sets);
 						setQuotes(data.popular_quotes);
 						break;
 					case "Ctrl":
@@ -127,7 +134,7 @@ export const Client = () => {
 
 	const getPathConfig = {
 		len: {
-			label: "Avg Path Length",
+			label: "Avg Len",
 			color: "hsl(var(--chart-2))",
 		}
 	} satisfies ChartConfig
@@ -144,7 +151,8 @@ export const Client = () => {
 						<CardContent>
 							<ChartContainer config={dataSpreadConfig} className="min-h-[50px]">
 								<BarChart accessibilityLayer data={nodeData} >
-									<YAxis dataKey="len" tickLine={false} axisLine={false} orientation="left" width={30} />
+									<YAxis dataKey="len" tickLine={false} axisLine={false} orientation="left" width={35} />
+									<XAxis dataKey="addr" hide />
 									<ChartTooltip
 										cursor={false}
 										content={<ChartTooltipContent />}
@@ -163,15 +171,17 @@ export const Client = () => {
 								Average Path Length
 							</CardTitle>
 							<CardDescription>
-								Moving average of number of nodes visited per operation
+								Cummulative average number of nodes visited per operation
 							</CardDescription>
 						</CardHeader>
 						<CardContent>
 							<ChartContainer config={getPathConfig} >
-								<BarChart accessibilityLayer data={[{ type: "Get", len: avgGetPathLen }, { type: "Set", len: avgSetPathLen }]}>
+								<BarChart accessibilityLayer data={[{ type: `Gets: ${totalGets}`, len: totalGetPathLen / totalGets }, { type: `Sets: ${totalSets}`, len: totalSetPathLen / totalSets }]}>
+									<YAxis dataKey="len" width={35} tickLine={false} axisLine={false} />
 									<XAxis dataKey="type" tickLine={false} axisLine={false} />
 									<ChartTooltip
 										cursor={false}
+										wrapperClassName="flex flex-row space-x-2"
 										content={<ChartTooltipContent />}
 									/>
 									<Bar
@@ -186,7 +196,7 @@ export const Client = () => {
 						</CardContent>
 					</Card>
 				</div>
-				<SigmaContainer settings={{ defaultEdgeType: "arrow" }} className="rounded-xl border-2 w-full" style={{ background: "inherit", color: "white" }} graph={graph} />
+				<SigmaContainer settings={{ defaultEdgeType: "arrow", renderLabels: false }} className="rounded-xl border-2 w-full" style={{ background: "inherit", color: "white" }} graph={graph} />
 				<div className="flex flex-col space-y-8 w-1/3">
 					<Card>
 						<CardHeader className="p-4">
@@ -236,7 +246,7 @@ export const Client = () => {
 								}
 							</Button>
 					}
-					<div className="flex flex-col space-y-4">
+					<div className="flex flex-col h-full space-y-8">
 						<div className="flex w-full flex-col space-y-4">
 							<Label className="flex flex-row items-center space-x-2">
 								<TooltipProvider>
@@ -365,17 +375,17 @@ export const Client = () => {
 				</div>
 			</div>
 			<div className="flex flex-col w-full h-1/3 space-y-4">
-				<h2 className="text-xl font-bold">Top Quotes</h2>
+				<h2 className="text-lg font-bold">Top Quotes</h2>
 				<div className="flex flex-row space-x-4">
 					{
-						quotes.map(q => (<Card className="w-1/3 max-h-full">
+						quotes.map(q => (<Card className="w-1/5 flex flex-col">
 							<CardHeader>
 								<CardTitle>
 									{q.author}
 								</CardTitle>
 							</CardHeader>
-							<CardContent>
-								<ScrollArea className="h-[6rem]">
+							<CardContent className="flex flex-grow" >
+								<ScrollArea className="flex max-h-[6rem] overflow-y-auto">
 									{q.quote}
 								</ScrollArea>
 							</CardContent>
