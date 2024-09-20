@@ -12,6 +12,7 @@ import { Bar, BarChart, XAxis, YAxis } from "recharts"
 import { type ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Info, LoaderCircle } from "lucide-react";
+import { ScrollArea } from "./ui/scroll-area";
 
 type PollData = {
 	nodes: NodeData[],
@@ -28,6 +29,7 @@ type NodeData = {
 type Quote = {
 	quote: string,
 	author: string,
+	gets: number,
 }
 
 export const Client = () => {
@@ -65,7 +67,6 @@ export const Client = () => {
 	const [simStatus, setSimStatus] = useState<"stopped" | "started">("stopped");
 	const [startPending, setStartPending] = useState(false);
 	const [stopPending, setStopPending] = useState(false);
-	const [updatePending, setUpdatePending] = useState(false);
 
 	useEffect(
 		() => {
@@ -110,9 +111,6 @@ export const Client = () => {
 								setSimStatus("stopped");
 								setStopPending(false);
 								break;
-							case "Updated":
-								setUpdatePending(false);
-								break;
 						}
 						break;
 				}
@@ -135,260 +133,259 @@ export const Client = () => {
 	} satisfies ChartConfig
 
 	return (
-		<div className="flex p-8 flex-row w-screen h-screen space-x-8 justify-between">
-			<div className="w-1/4 h-full flex flex-col space-y-8">
-				<Card>
-					<CardHeader>
-						<CardTitle>Data Spread</CardTitle>
-						<CardDescription>Number of entries in each node</CardDescription>
-					</CardHeader>
-					<CardContent>
-						<ChartContainer config={dataSpreadConfig} className="min-h-[50px]">
-							<BarChart accessibilityLayer data={nodeData} >
-								<YAxis dataKey="len" tickLine={false} axisLine={false} orientation="left" width={30} />
-								<ChartTooltip
-									cursor={false}
-									content={<ChartTooltipContent />}
-								/>
-								<Bar dataKey="len" fill="var(--color-len)" radius={4} />
-							</BarChart>
-						</ChartContainer>
-					</CardContent>
-					<CardFooter className="flex flex-row space-x-2">
-						<Label>Total Entries:</Label> <p>{dataLen}</p>
-					</CardFooter>
-				</Card>
-				<Card>
-					<CardHeader>
-						<CardTitle>
-							Average Path Length
-						</CardTitle>
-						<CardDescription>
-							Moving average of number of nodes visited per operation
-						</CardDescription>
-					</CardHeader>
-					<CardContent>
-						<ChartContainer config={getPathConfig} >
-							<BarChart accessibilityLayer data={[{ type: "Get", len: avgGetPathLen }, { type: "Set", len: avgSetPathLen }]}>
-								<XAxis dataKey="type" tickLine={false} axisLine={false} />
-								<ChartTooltip
-									cursor={false}
-									content={<ChartTooltipContent />}
-								/>
-								<Bar
-									dataKey="len"
-									type="natural"
-									fill="var(--color-len)"
-									fillOpacity={0.4}
-									stroke="var(--color-len)"
-								/>
-							</BarChart>
-						</ChartContainer>
-					</CardContent>
-				</Card>
-			</div>
-			<SigmaContainer settings={{ defaultEdgeType: "arrow" }} className="rounded-xl border-2 w-full" style={{ background: "inherit", color: "white" }} graph={graph} />
-			<div className="flex flex-col space-y-8 w-1/4">
-				<Card>
-					<CardHeader className="p-4">
-						<div className="flex flex-row items-center justify-between">
-							<div>
-								<CardTitle>Connection</CardTitle>
-								<CardDescription>{connectionStatus}</CardDescription>
+		<div className="flex p-8 flex-col w-screen h-screen space-y-8 justify-between">
+			<div className="flex flex-row w-full h-full space-x-8 justify-between">
+				<div className="w-1/3 h-full flex flex-col space-y-8">
+					<Card>
+						<CardHeader>
+							<CardTitle>Data Spread</CardTitle>
+							<CardDescription>Number of entries in each node</CardDescription>
+						</CardHeader>
+						<CardContent>
+							<ChartContainer config={dataSpreadConfig} className="min-h-[50px]">
+								<BarChart accessibilityLayer data={nodeData} >
+									<YAxis dataKey="len" tickLine={false} axisLine={false} orientation="left" width={30} />
+									<ChartTooltip
+										cursor={false}
+										content={<ChartTooltipContent />}
+									/>
+									<Bar dataKey="len" fill="var(--color-len)" radius={4} />
+								</BarChart>
+							</ChartContainer>
+						</CardContent>
+						<CardFooter className="flex flex-row space-x-2">
+							<Label>Total Entries:</Label> <p>{dataLen}</p>
+						</CardFooter>
+					</Card>
+					<Card>
+						<CardHeader>
+							<CardTitle>
+								Average Path Length
+							</CardTitle>
+							<CardDescription>
+								Moving average of number of nodes visited per operation
+							</CardDescription>
+						</CardHeader>
+						<CardContent>
+							<ChartContainer config={getPathConfig} >
+								<BarChart accessibilityLayer data={[{ type: "Get", len: avgGetPathLen }, { type: "Set", len: avgSetPathLen }]}>
+									<XAxis dataKey="type" tickLine={false} axisLine={false} />
+									<ChartTooltip
+										cursor={false}
+										content={<ChartTooltipContent />}
+									/>
+									<Bar
+										dataKey="len"
+										type="natural"
+										fill="var(--color-len)"
+										fillOpacity={0.4}
+										stroke="var(--color-len)"
+									/>
+								</BarChart>
+							</ChartContainer>
+						</CardContent>
+					</Card>
+				</div>
+				<SigmaContainer settings={{ defaultEdgeType: "arrow" }} className="rounded-xl border-2 w-full" style={{ background: "inherit", color: "white" }} graph={graph} />
+				<div className="flex flex-col space-y-8 w-1/3">
+					<Card>
+						<CardHeader className="p-4">
+							<div className="flex flex-row items-center justify-between">
+								<div>
+									<CardTitle>Connection</CardTitle>
+									<CardDescription>{connectionStatus}</CardDescription>
+								</div>
+								<span className="relative flex h-3 w-3">
+									<span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${connColor} opacity-75`}></span>
+									<span className={`relative inline-flex rounded-full h-3 w-3 ${connColor}`}></span>
+								</span>
 							</div>
-							<span className="relative flex h-3 w-3">
-								<span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${connColor} opacity-75`}></span>
-								<span className={`relative inline-flex rounded-full h-3 w-3 ${connColor}`}></span>
-							</span>
-						</div>
-					</CardHeader>
-				</Card>
-				{
-					simStatus === "started" ? <Button onClick={
-						() => {
-							setStopPending(true)
-							sendMessage(JSON.stringify("Stop"))
-						}
-					} variant="destructive">
-						{stopPending ? <LoaderCircle className="animate-spin" /> : "Stop"}
-					</Button> :
-						<Button
-							onClick={
-								() => {
-									setStartPending(true);
-									sendMessage(
-										JSON.stringify({
-											"Start": {
-												poll_rate: pollRate,
-												nodes: nodes,
-												activity_level: activityLevel,
-												get_affinity: getAffinity,
-												stabilize_freq: stabilizeFreq,
-												fix_finger_freq: fixFingersFreq
-											}
-										})
-									)
+						</CardHeader>
+					</Card>
+					{
+						simStatus === "started" ? <Button onClick={
+							() => {
+								setStopPending(true)
+								sendMessage(JSON.stringify("Stop"))
+							}
+						} variant="destructive">
+							{stopPending ? <LoaderCircle className="animate-spin" /> : "Stop"}
+						</Button> :
+							<Button
+								onClick={
+									() => {
+										setStartPending(true);
+										sendMessage(
+											JSON.stringify({
+												"Start": {
+													poll_rate: pollRate,
+													nodes: nodes,
+													activity_level: activityLevel,
+													get_affinity: getAffinity,
+													stabilize_freq: stabilizeFreq,
+													fix_finger_freq: fixFingersFreq
+												}
+											})
+										)
+									}
 								}
-							}
-							disabled={readyState !== ReadyState.OPEN}
-						>
-							{
-								startPending ? <LoaderCircle className="animate-spin" /> : "Start"
-							}
-						</Button>
-				}
-				<div className="flex flex-col space-y-4">
-					<div className="flex w-full flex-col space-y-4">
-						<Label className="flex flex-row items-center space-x-2">
-							<TooltipProvider>
-								<Tooltip>
-									<TooltipTrigger asChild>
-										<Info size={15} />
-									</TooltipTrigger>
-									<TooltipContent align="center" className="w-24">
-										<p>The conductor will poll nodes every {pollRate} milleseconds</p>
-									</TooltipContent>
-								</Tooltip>
-							</TooltipProvider>
-							<span className="font-bold">Poll Rate</span>
-							<span>{pollRate}ms</span>
-						</Label>
-						<Slider onValueChange={(n) => setPollRate(n[0])} defaultValue={[100]} min={10} max={1000} step={1} />
-					</div>
-					<div className="flex w-full flex-col space-y-4">
-						<Label className="flex flex-row items-center space-x-2">
-							<TooltipProvider>
-								<Tooltip>
-									<TooltipTrigger asChild>
-										<Info size={15} />
-									</TooltipTrigger>
-									<TooltipContent align="center" className="w-24">
-										<p >There will be {nodes} nodes in circulation</p>
-									</TooltipContent>
-								</Tooltip>
-							</TooltipProvider>
-							<span className="font-bold">Nodes</span>
-							<span>{nodes}</span>
-						</Label>
-						<Slider onValueChange={(n) => setNodes(n[0])} defaultValue={[20]} min={1} max={50} step={1} />
-					</div>
-					<div className="flex w-full flex-col space-y-4">
-						<Label className="flex flex-row items-center space-x-2">
-							<TooltipProvider>
-								<Tooltip>
-									<TooltipTrigger asChild>
-										<Info size={15} />
-									</TooltipTrigger>
-									<TooltipContent align="center" className="w-24">
-										<p>
-											Each node will perform a get or set operation every {activityLevel} milleseconds
-										</p>
-									</TooltipContent>
-								</Tooltip>
-							</TooltipProvider>
-							<span className="font-bold">
-								Activity Level
-							</span>
-							<span>{activityLevel}ms</span>
-						</Label>
-						<Slider onValueChange={(n) => setActivityLevel(n[0])} defaultValue={[100]} min={10} max={1000} step={1} />
-					</div>
-					<div className="flex w-full flex-col space-y-4">
-						<Label className="flex flex-row items-center space-x-2">
-							<TooltipProvider>
-								<Tooltip>
-									<TooltipTrigger asChild>
-										<Info size={15} />
-									</TooltipTrigger>
-									<TooltipContent align="center" className="w-24">
-										<p>
-											Nodes will perform gets {getAffinity}% of the time, and sets {100 - getAffinity}% of the time
-										</p>
-									</TooltipContent>
-								</Tooltip>
-							</TooltipProvider>
-							<span className="font-bold">
-								Get Affinity
-							</span>
-							<span>
-								{getAffinity}%
-							</span>
-						</Label>
-						<Slider onValueChange={(n) => setGetAffinity(n[0])} defaultValue={[50]} min={0} max={100} step={1} />
-					</div>
-					<div className="flex w-full flex-col space-y-4">
-						<Label className="flex flex-row items-center space-x-2" >
-							<TooltipProvider>
-								<Tooltip>
-									<TooltipTrigger asChild>
-										<Info size={15} />
-									</TooltipTrigger>
-									<TooltipContent align="center" className="w-24">
-										<p>
-											Nodes will perform the stabilize proceedure every {stabilizeFreq} milleseconds
-										</p>
-									</TooltipContent>
-								</Tooltip>
-							</TooltipProvider>
-							<span className="font-bold">
-								Stabilize Freq
-							</span>
-							<span>
-								{stabilizeFreq}ms
-							</span>
-						</Label>
-						<Slider onValueChange={(n) => setStabilizeFreq(n[0])} defaultValue={[100]} min={10} max={1000} step={1} />
-					</div>
-					<div className="flex w-full flex-col space-y-4">
-						<Label className="flex flex-row items-center space-x-2">
-							<TooltipProvider>
-								<Tooltip>
-									<TooltipTrigger asChild>
-										<Info size={15} />
-									</TooltipTrigger>
-									<TooltipContent align="center" className="w-24">
-										<p>
-											Nodes will perform the fix fingers proceedure every {fixFingersFreq} milleseconds
-										</p>
-									</TooltipContent>
-								</Tooltip>
-							</TooltipProvider>
-							<span className="font-bold">
-								Fix Fingers Freq
-							</span>
-							<span>
-								{fixFingersFreq}ms
-							</span>
-						</Label>
-						<Slider onValueChange={(n) => setFixFingersFreq(n[0])} defaultValue={[100]} min={10} max={1000} step={1} />
+								disabled={readyState !== ReadyState.OPEN}
+							>
+								{
+									startPending ? <LoaderCircle className="animate-spin" /> : "Start"
+								}
+							</Button>
+					}
+					<div className="flex flex-col space-y-4">
+						<div className="flex w-full flex-col space-y-4">
+							<Label className="flex flex-row items-center space-x-2">
+								<TooltipProvider>
+									<Tooltip>
+										<TooltipTrigger asChild>
+											<Info size={15} />
+										</TooltipTrigger>
+										<TooltipContent align="center" className="w-24">
+											<p>The conductor will poll nodes every {pollRate} milleseconds</p>
+										</TooltipContent>
+									</Tooltip>
+								</TooltipProvider>
+								<span className="font-bold">Poll Rate</span>
+								<span>{pollRate}ms</span>
+							</Label>
+							<Slider disabled={simStatus === "started"} onValueChange={(n) => setPollRate(n[0])} defaultValue={[100]} min={10} max={1000} step={1} />
+						</div>
+						<div className="flex w-full flex-col space-y-4">
+							<Label className="flex flex-row items-center space-x-2">
+								<TooltipProvider>
+									<Tooltip>
+										<TooltipTrigger asChild>
+											<Info size={15} />
+										</TooltipTrigger>
+										<TooltipContent align="center" className="w-24">
+											<p >There will be {nodes} nodes in circulation</p>
+										</TooltipContent>
+									</Tooltip>
+								</TooltipProvider>
+								<span className="font-bold">Nodes</span>
+								<span>{nodes}</span>
+							</Label>
+							<Slider disabled={simStatus === "started"} onValueChange={(n) => setNodes(n[0])} defaultValue={[20]} min={1} max={50} step={1} />
+						</div>
+						<div className="flex w-full flex-col space-y-4">
+							<Label className="flex flex-row items-center space-x-2">
+								<TooltipProvider>
+									<Tooltip>
+										<TooltipTrigger asChild>
+											<Info size={15} />
+										</TooltipTrigger>
+										<TooltipContent align="center" className="w-24">
+											<p>
+												Each node will perform a get or set operation every {activityLevel} milleseconds
+											</p>
+										</TooltipContent>
+									</Tooltip>
+								</TooltipProvider>
+								<span className="font-bold">
+									Activity Level
+								</span>
+								<span>{activityLevel}ms</span>
+							</Label>
+							<Slider disabled={simStatus === "started"} onValueChange={(n) => setActivityLevel(n[0])} defaultValue={[100]} min={10} max={1000} step={1} />
+						</div>
+						<div className="flex w-full flex-col space-y-4">
+							<Label className="flex flex-row items-center space-x-2">
+								<TooltipProvider>
+									<Tooltip>
+										<TooltipTrigger asChild>
+											<Info size={15} />
+										</TooltipTrigger>
+										<TooltipContent align="center" className="w-24">
+											<p>
+												Nodes will perform gets {getAffinity}% of the time, and sets {100 - getAffinity}% of the time
+											</p>
+										</TooltipContent>
+									</Tooltip>
+								</TooltipProvider>
+								<span className="font-bold">
+									Get Affinity
+								</span>
+								<span>
+									{getAffinity}%
+								</span>
+							</Label>
+							<Slider disabled={simStatus === "started"} onValueChange={(n) => setGetAffinity(n[0])} defaultValue={[50]} min={0} max={100} step={1} />
+						</div>
+						<div className="flex w-full flex-col space-y-4">
+							<Label className="flex flex-row items-center space-x-2" >
+								<TooltipProvider>
+									<Tooltip>
+										<TooltipTrigger asChild>
+											<Info size={15} />
+										</TooltipTrigger>
+										<TooltipContent align="center" className="w-24">
+											<p>
+												Nodes will perform the stabilize proceedure every {stabilizeFreq} milleseconds
+											</p>
+										</TooltipContent>
+									</Tooltip>
+								</TooltipProvider>
+								<span className="font-bold">
+									Stabilize Freq
+								</span>
+								<span>
+									{stabilizeFreq}ms
+								</span>
+							</Label>
+							<Slider disabled={simStatus === "started"} onValueChange={(n) => setStabilizeFreq(n[0])} defaultValue={[100]} min={10} max={1000} step={1} />
+						</div>
+						<div className="flex w-full flex-col space-y-4">
+							<Label className="flex flex-row items-center space-x-2">
+								<TooltipProvider>
+									<Tooltip>
+										<TooltipTrigger asChild>
+											<Info size={15} />
+										</TooltipTrigger>
+										<TooltipContent align="center" className="w-24">
+											<p>
+												Nodes will perform the fix fingers proceedure every {fixFingersFreq} milleseconds
+											</p>
+										</TooltipContent>
+									</Tooltip>
+								</TooltipProvider>
+								<span className="font-bold">
+									Fix Fingers Freq
+								</span>
+								<span>
+									{fixFingersFreq}ms
+								</span>
+							</Label>
+							<Slider disabled={simStatus === "started"} onValueChange={(n) => setFixFingersFreq(n[0])} defaultValue={[100]} min={10} max={1000} step={1} />
+						</div>
 					</div>
 				</div>
-				{
-					simStatus === "started" ? <Button
-						disabled={readyState !== ReadyState.OPEN}
-						onClick={
-							() => {
-								setUpdatePending(true);
-								sendMessage(
-									JSON.stringify(
-										{
-											"Update": {
-												poll_rate: pollRate,
-												nodes: nodes,
-												activity_level: activityLevel,
-												get_affinity: getAffinity,
-												stabilize_freq: stabilizeFreq,
-												fix_finger_freq: fixFingersFreq
-											}
-										}
-									)
-								)
-							}
-						}
-					>
-						{updatePending ? <LoaderCircle className="animate-spin" /> : "Update Settings"}
-					</Button> : <></>
-				}
+			</div>
+			<div className="flex flex-col w-full h-1/3 space-y-4">
+				<h2 className="text-xl font-bold">Top Quotes</h2>
+				<div className="flex flex-row space-x-4">
+					{
+						quotes.map(q => (<Card className="w-1/3 max-h-full">
+							<CardHeader>
+								<CardTitle>
+									{q.author}
+								</CardTitle>
+							</CardHeader>
+							<CardContent>
+								<ScrollArea className="h-[6rem]">
+									{q.quote}
+								</ScrollArea>
+							</CardContent>
+							<CardFooter>
+								<Label>
+									Total Gets: {q.gets}
+								</Label>
+							</CardFooter>
+						</Card>))
+					}</div>
 			</div>
 		</div>
 	)
